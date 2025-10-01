@@ -1,0 +1,82 @@
+const express = require('express');
+const cors = require('cors');
+const { v4: uuidv4 } = require('uuid');
+
+const app = express();
+const PORT = 3000;
+
+app.use(cors());
+app.use(express.json());
+
+let playingCards = [
+    { id: uuidv4(), suit: 'Hearts', rank: 'A', name: 'Ace of Hearts' },
+    { id: uuidv4(), suit: 'Spades', rank: 'K', name: 'King of Spades' },
+    { id: uuidv4(), suit: 'Diamonds', rank: '7', name: '7 of Diamonds' }
+];
+
+app.get('/cards', (req, res) => {
+    res.json(playingCards);
+});
+
+app.get('/cards/:id', (req, res) => {
+    const { id } = req.params;
+    const card = playingCards.find(c => c.id === id);
+    if (card) {
+        res.json(card);
+    } else {
+        res.status(404).send('Card not found');
+    }
+});
+
+app.post('/cards', (req, res) => {
+    const { suit, rank } = req.body;
+    if (!suit || !rank) {
+        return res.status(400).send('Suit and rank are required.');
+    }
+    const newCard = {
+        id: uuidv4(),
+        suit,
+        rank,
+        name: `${rank} of ${suit}`
+    };
+    playingCards.push(newCard);
+    res.status(201).json(newCard);
+});
+
+app.put('/cards/:id', (req, res) => {
+    const { id } = req.params;
+    const { suit, rank } = req.body;
+    const cardIndex = playingCards.findIndex(c => c.id === id);
+
+    if (cardIndex === -1) {
+        return res.status(404).send('Card not found');
+    }
+
+    if (!suit || !rank) {
+        return res.status(400).send('Suit and rank are required for update.');
+    }
+    
+    const updatedCard = { 
+        ...playingCards[cardIndex], 
+        suit, 
+        rank, 
+        name: `${rank} of ${suit}` 
+    };
+    playingCards[cardIndex] = updatedCard;
+
+    res.json(updatedCard);
+});
+
+app.delete('/cards/:id', (req, res) => {
+    const { id } = req.params;
+    const cardIndex = playingCards.findIndex(c => c.id === id);
+    if (cardIndex === -1) {
+        return res.status(404).send('Card not found');
+    }
+    playingCards.splice(cardIndex, 1);
+    res.status(204).send();
+});
+
+app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+});

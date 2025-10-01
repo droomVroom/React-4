@@ -1,0 +1,114 @@
+const express = require('express');
+const cors = require('cors');
+const crypto = require('crypto');
+
+const app = express();
+const PORT = 4000;
+
+app.use(cors());
+app.use(express.json());
+
+const SEAT_COUNT = 50;
+const LOCK_TIMEOUT_MS = 60 * 1000; // 60 seconds
+
+let seats = Array.from({ length: SEAT_COUNT }, (_, i) => ({
+    id: i + 1,
+    status: 'available', // available, locked, booked
+    lockToken: null,
+    lockedUntil: null
+}));
+
+const asyncLock = {
+    isLocked: false,
+    queue: [],
+
+    acquire() {
+        return new Promise(resolve => {
+            if (!this.isLocked) {
+                this.isLocked = true;
+                resolve();
+            } else {
+                this.queue.push(resolve);
+            }
+        });
+    },
+
+    release() {
+        if (this.queue.length > 0) {
+            const nextResolve = this.queue.shift();
+            nextResolve();
+        } else {
+            this.isLocked = false;
+        }
+    }
+};
+
+app.get('/seats', (req, res) => {
+    res.json(seats);
+});
+
+app.post('/seats/:id/lock', async (req, res) => {
+    await asyncLock.acquire();
+    try {
+        const seatId = parseInt(req.params.id, 10);
+        const seat = seats.find(s => s.id === seatId);
+
+        if (!seat) {
+            return res.status(404).json({ message: 'Seat not found' });
+        }
+
+        if (seat.status !== 'available') {
+            return res.status(409).json({ message: 'Seat is not available for locking' });
+        }
+        
+        const lockToken = crypto.randomBytes(16).toString('hex');
+        const lockedUntil = Date.now() + LOCK_TIMEOUT_MS;
+
+        seat.status = 'locked';
+        seat.lockToken = lockToken;
+        seat.lockedUntil = lockedUntil;
+
+        res.json({
+            message: 'Seat locked successfully',
+            lockToken,
+            lockedUntil
+        });
+    } finally {
+        asyncLock.release();
+    }
+});
+
+app.post('/seats/:id/book', (req, res) => {
+    const seatId = parseInt(req.params.id, 10);
+    const { lockToken } = req.body;
+    const seat = seats.find(s => s.id === seatId);
+
+    if (!seat) {
+        return res.status(404).json({ message: 'Seat not found' });
+    }
+
+    if (seat.status !== 'locked') {
+        return res.status(409).json({ message: 'Seat must be locked before booking' });
+    }
+
+    if (seat.lockToken !== lockToken) {
+        return res.status(403).json({ message: 'Invalid lock token' });
+    }
+
+    if (Date.now() > seat.lockedUntil) {
+        return res.status(410).json({ message: 'Your lock has expired' });
+    }
+
+    seat.status = 'booked';
+    seat.lockToken = null;
+    seat.lockedUntil = null;
+
+    res.json({ message: 'Seat booked successfully' });
+});
+
+setInterval(() => {
+    const now = Date.now();
+    seats.forEach(seat => {
+        if (seat.status === 'locked' && now > seat.lockedUntil) {
+            console.log(`Seat ${seat.id} lock expired. Releasing.`);
+            seat.

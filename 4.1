@@ -1,0 +1,137 @@
+const inquirer = require('inquirer');
+
+let employees = [];
+let nextId = 1;
+
+function mainMenu() {
+    inquirer.prompt([
+        {
+            type: 'list',
+            name: 'action',
+            message: 'What would you like to do?',
+            choices: [
+                'Add Employee',
+                'View All Employees',
+                'Update Employee',
+                'Delete Employee',
+                'Exit'
+            ]
+        }
+    ]).then(answer => {
+        switch (answer.action) {
+            case 'Add Employee':
+                addEmployee();
+                break;
+            case 'View All Employees':
+                viewEmployees();
+                break;
+            case 'Update Employee':
+                updateEmployee();
+                break;
+            case 'Delete Employee':
+                deleteEmployee();
+                break;
+            case 'Exit':
+                console.log("Goodbye!");
+                process.exit();
+        }
+    });
+}
+
+function addEmployee() {
+    inquirer.prompt([
+        {
+            type: 'input',
+            name: 'name',
+            message: "What is the employee's name?"
+        },
+        {
+            type: 'input',
+            name: 'department',
+            message: "What is the employee's department?"
+        }
+    ]).then(answers => {
+        const newEmployee = {
+            id: nextId++,
+            name: answers.name,
+            department: answers.department
+        };
+        employees.push(newEmployee);
+        console.log('\n✅ Employee added successfully!\n');
+        mainMenu();
+    });
+}
+
+function viewEmployees() {
+    console.log("\n--- All Employees ---");
+    if (employees.length === 0) {
+        console.log("No employees found.");
+    } else {
+        console.table(employees);
+    }
+    console.log("---------------------\n");
+    mainMenu();
+}
+
+function updateEmployee() {
+    inquirer.prompt([
+        {
+            type: 'input',
+            name: 'id',
+            message: "Enter the ID of the employee to update:"
+        }
+    ]).then(answer => {
+        const employeeId = parseInt(answer.id, 10);
+        const employee = employees.find(emp => emp.id === employeeId);
+
+        if (!employee) {
+            console.log('\n❌ No employee found with that ID.\n');
+            mainMenu();
+            return;
+        }
+
+        inquirer.prompt([
+            {
+                type: 'input',
+                name: 'name',
+                message: `What is the new name for ${employee.name}?`,
+                default: employee.name
+            },
+            {
+                type: 'input',
+                name: 'department',
+                message: `What is the new department for ${employee.name}?`,
+                default: employee.department
+            }
+        ]).then(updates => {
+            employee.name = updates.name;
+            employee.department = updates.department;
+            console.log('\n✅ Employee updated successfully!\n');
+            mainMenu();
+        });
+    });
+}
+
+function deleteEmployee() {
+    inquirer.prompt([
+        {
+            type: 'input',
+            name: 'id',
+            message: 'Enter the ID of the employee to delete:'
+        }
+    ]).then(answer => {
+        const employeeId = parseInt(answer.id, 10);
+        const employeeIndex = employees.findIndex(emp => emp.id === employeeId);
+
+        if (employeeIndex === -1) {
+            console.log('\n❌ No employee found with that ID.\n');
+        } else {
+            employees.splice(employeeIndex, 1);
+            console.log('\n✅ Employee deleted successfully!\n');
+        }
+        mainMenu();
+    });
+}
+
+console.log("Welcome to the Employee Management System!");
+mainMenu();
